@@ -2,8 +2,12 @@
 
 `crabwire` is a tiny dependency registry for Rust.
 
-You register concrete values once, then fetch shared references by type. It is
-meant for simple app wiring, not for scoped lifetimes or per-request containers.
+You register concrete values once, then fetch shared references by type. 
+
+This is not zero cost: the global registry stores values behind boxes and uses
+type erasure internally, so lookups pay for a `TypeId` map lookup and a downcast.
+
+Usually fine for app setup, but you should probably not be calling functions that use `#[inject]` in a hot loop.
 
 ## Basic usage
 
