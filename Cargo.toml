@@ -1,0 +1,3 @@
+[workspace]
+members = ["crabwire", "crabwire_macros", "example"]
+resolver = "3"
