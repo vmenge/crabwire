@@ -2,6 +2,11 @@
 name = "crabwire"
 version = "0.1.0"
 edition = "2024"
+description = "A tiny global dependency registry for Rust"
+readme = "../README.md"
+license = "MIT"
+homepage = "https://github.com/vmenge/crabwire"
+repository = "https://github.com/vmenge/crabwire"
 
 [dependencies]
 crabwire_macros = { path = "../crabwire_macros/" }
