@@ -3,6 +3,10 @@ name = "crabwire_macros"
 version = "0.1.0"
 edition = "2024"
 description = "Proc macros for crabwire"
+readme = "../README.md"
+license = "MIT"
+homepage = "https://github.com/vmenge/crabwire"
+repository = "https://github.com/vmenge/crabwire"
 
 [lib]
 proc-macro = true
