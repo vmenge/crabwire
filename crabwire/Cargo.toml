@@ -1,6 +1,6 @@
 [package]
 name = "crabwire"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "A tiny global dependency registry for Rust"
 readme = "../README.md"
@@ -9,5 +9,5 @@ repository = "https://github.com/vmenge/crabwire"
 license = "MIT"
 
 [dependencies]
-crabwire_macros = "0.1"
+crabwire_macros = "0.1.1"
 foldhash = "0.2"
