@@ -1,4 +1,4 @@
-use crabwire::{Error, Module, Registry, get, inject, register};
+use crabwire::{Error, Module, Registry, get, inject, register, try_register};
 
 struct NotClone {
     value: String,
@@ -88,6 +88,19 @@ fn global_get_returns_static_references() {
     let value: &'static NotClone = get!(NotClone);
 
     assert_eq!(value.value, "global");
+}
+
+#[test]
+fn try_register_reports_already_installed() {
+    try_register!(Registry::new().insert(NotClone {
+        value: "first".to_owned(),
+    }))
+    .expect("first global registry install should succeed");
+
+    let error = try_register!(Registry::new().insert(ModuleValue { label: "second" }))
+        .expect_err("second global registry install should fail");
+
+    assert_eq!(error, Error::AlreadyInstalled);
 }
 
 #[test]

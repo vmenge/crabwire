@@ -4,13 +4,13 @@
 
 use std::{
     any::{Any, TypeId, type_name},
-    collections::HashMap,
     error::Error as StdError,
     fmt,
     sync::OnceLock,
 };
 
 pub use crabwire_macros::inject;
+use foldhash::HashMap;
 
 static GLOBAL_REGISTRY: OnceLock<Registry> = OnceLock::new();
 
@@ -266,6 +266,24 @@ macro_rules! register {
     }};
 }
 
+/// Try to install a registry as the global registry.
+///
+/// This returns [`Error::AlreadyInstalled`] if a global registry has already
+/// been installed.
+///
+/// ```rust,ignore
+/// use crabwire::{Registry, try_register};
+///
+/// struct Config;
+///
+/// try_register!(Registry::new().insert(Config))?;
+/// # Ok::<(), crabwire::Error>(())
+/// ```
+#[macro_export]
+macro_rules! try_register {
+    ($registry:expr $(,)?) => {{ $crate::macro_utils::install_global($registry) }};
+}
+
 /// Get a dependency from the global registry.
 ///
 /// This panics if the global registry is missing or the dependency is not
@@ -285,7 +303,5 @@ macro_rules! register {
 /// ```
 #[macro_export]
 macro_rules! get {
-    ($ty:ty $(,)?) => {{
-        $crate::macro_utils::global_get::<$ty>().unwrap_or_else(|error| panic!("{}", error))
-    }};
+    ($ty:ty $(,)?) => {{ $crate::macro_utils::global_get::<$ty>().unwrap_or_else(|error| panic!("{}", error)) }};
 }

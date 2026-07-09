@@ -4,9 +4,10 @@ version = 4
 
 [[package]]
 name = "crabwire"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "crabwire_macros 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "foldhash",
 ]
 
 [[package]]
@@ -43,6 +44,12 @@ version = "0.1.0"
 dependencies = [
  "crabwire",
 ]
+
+[[package]]
+name = "foldhash"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "hashbrown"
