@@ -127,6 +127,28 @@ install its own registry:
 cargo nextest run
 ```
 
+For tests that need to replace the global registry inside one process, enable
+the `testing` feature and use `reregister!`:
+
+```rust
+use crabwire::{Registry, get, reregister};
+
+struct Config {
+    value: &'static str,
+}
+
+reregister!(Registry::new().insert(Config { value: "first" }));
+assert_eq!(get!(Config).value, "first");
+
+reregister!(Registry::new().insert(Config { value: "second" }));
+assert_eq!(get!(Config).value, "second");
+```
+
+`reregister!` intentionally leaks each registry it installs. Future lookups use
+the latest registry, while references returned before replacement remain valid.
+The replacement registry is still process-global, so tests that mutate it can
+interfere with each other when they run concurrently.
+
 There is one global registry per resolved `crabwire` crate instance in the final
 binary. If a binary crate and several library crates all use the same `crabwire`
 version from the same source, they share one registry. If Cargo resolves multiple

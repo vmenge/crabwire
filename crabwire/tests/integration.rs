@@ -1,5 +1,8 @@
 use crabwire::{Error, Module, Registry, get, inject, register, try_register};
 
+#[cfg(feature = "testing")]
+use crabwire::reregister;
+
 struct NotClone {
     value: String,
 }
@@ -149,4 +152,25 @@ fn inject_can_use_trait_object_references() {
     register!(Registry::new().insert(logger));
 
     assert_eq!(render(), "dyn:injected");
+}
+
+#[cfg(feature = "testing")]
+#[test]
+fn reregister_replaces_global_registry_for_future_lookups() {
+    struct Config {
+        value: &'static str,
+    }
+
+    #[inject(config: &Config)]
+    fn render() -> &'static str {
+        config.value
+    }
+
+    reregister!(Registry::new().insert(Config { value: "first" }));
+    assert_eq!(get!(Config).value, "first");
+    assert_eq!(render(), "first");
+
+    reregister!(Registry::new().insert(Config { value: "second" }));
+    assert_eq!(get!(Config).value, "second");
+    assert_eq!(render(), "second");
 }

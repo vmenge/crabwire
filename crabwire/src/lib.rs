@@ -6,13 +6,21 @@ use std::{
     any::{Any, TypeId, type_name},
     error::Error as StdError,
     fmt,
-    sync::OnceLock,
 };
+
+#[cfg(not(feature = "testing"))]
+use std::sync::OnceLock;
+#[cfg(feature = "testing")]
+use std::sync::RwLock;
 
 pub use crabwire_macros::inject;
 use foldhash::HashMap;
 
+#[cfg(not(feature = "testing"))]
 static GLOBAL_REGISTRY: OnceLock<Registry> = OnceLock::new();
+
+#[cfg(feature = "testing")]
+static TEST_REGISTRY: RwLock<Option<&'static Registry>> = RwLock::new(None);
 
 /// Errors returned by registry operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -228,16 +236,45 @@ impl Registry {
 
 #[doc(hidden)]
 pub mod macro_utils {
-    use super::{Error, GLOBAL_REGISTRY, Registry};
+    use super::{Error, Registry};
 
+    #[cfg(not(feature = "testing"))]
+    use super::GLOBAL_REGISTRY;
+    #[cfg(feature = "testing")]
+    use super::TEST_REGISTRY;
+
+    #[cfg(not(feature = "testing"))]
     pub fn install_global(registry: Registry) -> Result<(), Error> {
         GLOBAL_REGISTRY
             .set(registry)
             .map_err(|_| Error::AlreadyInstalled)
     }
 
+    #[cfg(feature = "testing")]
+    pub fn install_global(registry: Registry) -> Result<(), Error> {
+        let mut global = TEST_REGISTRY.write().unwrap();
+
+        if global.is_some() {
+            return Err(Error::AlreadyInstalled);
+        }
+
+        *global = Some(Box::leak(Box::new(registry)));
+        Ok(())
+    }
+
+    #[cfg(feature = "testing")]
+    pub fn reregister_global_for_tests(registry: Registry) {
+        *TEST_REGISTRY.write().unwrap() = Some(Box::leak(Box::new(registry)));
+    }
+
+    #[cfg(not(feature = "testing"))]
     pub fn global_registry() -> Result<&'static Registry, Error> {
         GLOBAL_REGISTRY.get().ok_or(Error::NoRegistry)
+    }
+
+    #[cfg(feature = "testing")]
+    pub fn global_registry() -> Result<&'static Registry, Error> {
+        (*TEST_REGISTRY.read().unwrap()).ok_or(Error::NoRegistry)
     }
 
     pub fn global_get<T>() -> Result<&'static T, Error>
@@ -282,6 +319,19 @@ macro_rules! register {
 #[macro_export]
 macro_rules! try_register {
     ($registry:expr $(,)?) => {{ $crate::macro_utils::install_global($registry) }};
+}
+
+/// Replace the global registry in builds compiled with the `testing` feature.
+///
+/// This intentionally leaks the provided registry. Future global lookups use
+/// the latest reregistered registry, while references returned before this call
+/// remain valid.
+#[cfg(feature = "testing")]
+#[macro_export]
+macro_rules! reregister {
+    ($registry:expr $(,)?) => {{
+        $crate::macro_utils::reregister_global_for_tests($registry);
+    }};
 }
 
 /// Get a dependency from the global registry.
