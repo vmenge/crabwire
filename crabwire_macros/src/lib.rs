@@ -77,6 +77,7 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
                 ..
             }) => {
                 injected_stmts.push(parse_quote! {
+                    #[allow(clippy::borrowed_box)]
                     let #name: #ty = #runtime::macro_utils::global_get::<#elem>()
                         .unwrap_or_else(|error| panic!("{}", error));
                 });
