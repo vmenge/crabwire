@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 use proc_macro_crate::{FoundCrate, crate_name};
 use quote::{format_ident, quote};
 use syn::{
-    Ident, ItemFn, Stmt, Token, Type, TypeReference,
+    Attribute, Ident, ItemFn, LitStr, Stmt, Token, Type, TypeReference,
     parse::{Parse, ParseStream},
     parse_macro_input, parse_quote,
     punctuated::Punctuated,
@@ -65,6 +65,7 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
     let runtime = crabwire_path();
 
     let mut injected_stmts = Vec::<Stmt>::new();
+    let mut injected_docs = Vec::<Attribute>::new();
 
     for arg in args.items {
         let name = arg.name;
@@ -81,6 +82,12 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
                     let #name: #ty = #runtime::macro_utils::global_get::<#elem>()
                         .unwrap_or_else(|error| panic!("{}", error));
                 });
+
+                let doc = LitStr::new(
+                    &format!("- `{name}: {}`", format_type_for_docs(&ty)),
+                    proc_macro2::Span::call_site(),
+                );
+                injected_docs.push(parse_quote!(#[doc = #doc]));
             }
             _ => {
                 injected_stmts.push(parse_quote! {
@@ -93,7 +100,31 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
     injected_stmts.append(&mut item_fn.block.stmts);
     item_fn.block.stmts = injected_stmts;
 
+    if !injected_docs.is_empty() {
+        let heading = LitStr::new("Injected dependencies:", proc_macro2::Span::call_site());
+        let blank = LitStr::new("", proc_macro2::Span::call_site());
+
+        let mut attrs = Vec::with_capacity(item_fn.attrs.len() + injected_docs.len() + 2);
+        attrs.push(parse_quote!(#[doc = #heading]));
+        attrs.append(&mut injected_docs);
+        attrs.push(parse_quote!(#[doc = #blank]));
+        attrs.append(&mut item_fn.attrs);
+        item_fn.attrs = attrs;
+    }
+
     quote!(#item_fn).into()
+}
+
+fn format_type_for_docs(ty: &Type) -> String {
+    quote!(#ty)
+        .to_string()
+        .replace("& ", "&")
+        .replace(" :: ", "::")
+        .replace(" < ", "<")
+        .replace(" >", ">")
+        .replace(" ,", ",")
+        .replace("< ", "<")
+        .replace(" >", ">")
 }
 
 fn crabwire_path() -> proc_macro2::TokenStream {
@@ -104,5 +135,25 @@ fn crabwire_path() -> proc_macro2::TokenStream {
             quote!(::#ident)
         }
         Err(_) => quote!(::crabwire),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_type_for_docs;
+    use syn::{Type, parse_quote};
+
+    #[test]
+    fn formats_reference_types_without_extra_reference_whitespace() {
+        let ty: Type = parse_quote!(&Config);
+
+        assert_eq!(format_type_for_docs(&ty), "&Config");
+    }
+
+    #[test]
+    fn formats_nested_reference_types_without_token_spacing_noise() {
+        let ty: Type = parse_quote!(&Box<dyn Logger>);
+
+        assert_eq!(format_type_for_docs(&ty), "&Box<dyn Logger>");
     }
 }

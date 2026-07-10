@@ -110,6 +110,26 @@ let registry = Registry::new().module(AppModule {
 });
 ```
 
+Registries can be merged before registration:
+
+```rust
+use crabwire::Registry;
+
+struct Config {
+    app_name: &'static str,
+}
+
+struct Logger;
+
+let registry = Registry::new()
+    .insert(Config { app_name: "base" })
+    .insert(Logger)
+    .merge(Registry::new().insert(Config { app_name: "override" }));
+
+assert_eq!(registry.get::<Config>().unwrap().app_name, "override");
+assert!(registry.contains::<Logger>());
+```
+
 ## Gotchas
 
 `register!` can only be called once per process. It installs a global registry

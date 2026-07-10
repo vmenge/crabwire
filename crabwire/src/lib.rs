@@ -156,6 +156,32 @@ impl Registry {
         self
     }
 
+    /// Merge another registry into this one.
+    ///
+    /// If both registries contain the same dependency type, the value from
+    /// `other` replaces the value in `self`.
+    ///
+    /// ```rust
+    /// use crabwire::Registry;
+    ///
+    /// struct Config {
+    ///     name: &'static str,
+    /// }
+    /// struct Logger;
+    ///
+    /// let registry = Registry::new()
+    ///     .insert(Config { name: "base" })
+    ///     .insert(Logger)
+    ///     .merge(Registry::new().insert(Config { name: "override" }));
+    ///
+    /// assert_eq!(registry.get::<Config>().unwrap().name, "override");
+    /// assert!(registry.contains::<Logger>());
+    /// ```
+    pub fn merge(mut self, other: Registry) -> Self {
+        self.deps.extend(other.deps);
+        self
+    }
+
     /// Register all dependencies from a module.
     ///
     /// ```rust

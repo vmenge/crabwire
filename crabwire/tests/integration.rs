@@ -70,6 +70,25 @@ fn registry_reports_duplicate_insertions() {
 }
 
 #[test]
+fn registry_merge_overrides_duplicate_types_and_preserves_other_types() {
+    struct Config {
+        value: &'static str,
+    }
+
+    struct Service {
+        value: &'static str,
+    }
+
+    let registry = Registry::new()
+        .insert(Config { value: "base" })
+        .insert(Service { value: "service" })
+        .merge(Registry::new().insert(Config { value: "override" }));
+
+    assert_eq!(registry.get::<Config>().unwrap().value, "override");
+    assert_eq!(registry.get::<Service>().unwrap().value, "service");
+}
+
+#[test]
 fn module_registers_dependencies() {
     let registry = Registry::new().module(AppModule {
         label: "from module",
