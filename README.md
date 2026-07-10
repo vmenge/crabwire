@@ -70,12 +70,10 @@ struct Config {
 struct AppModule;
 
 impl Module for AppModule {
-    fn register(self, registry: &mut Registry) {
-        registry
-            .try_insert(Config {
-                app_name: "demo".to_owned(),
-            })
-            .unwrap();
+    fn register(self, registry: Registry) -> Registry {
+        registry.insert(Config {
+            app_name: "demo".to_owned(),
+        })
     }
 }
 
@@ -96,12 +94,10 @@ struct AppModule {
 }
 
 impl Module for AppModule {
-    fn register(self, registry: &mut Registry) {
-        registry
-            .try_insert(Config {
-                app_name: self.app_name,
-            })
-            .unwrap();
+    fn register(self, registry: Registry) -> Registry {
+        registry.insert(Config {
+            app_name: self.app_name,
+        })
     }
 }
 

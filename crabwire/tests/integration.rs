@@ -30,10 +30,8 @@ impl Logger for PrefixLogger {
 }
 
 impl Module for AppModule {
-    fn register(self, registry: &mut Registry) {
-        registry
-            .try_insert(ModuleValue { label: self.label })
-            .expect("module should register ModuleValue");
+    fn register(self, registry: Registry) -> Registry {
+        registry.insert(ModuleValue { label: self.label })
     }
 }
 
@@ -99,6 +97,30 @@ fn module_registers_dependencies() {
         .expect("module should have registered ModuleValue");
 
     assert_eq!(value.label, "from module");
+}
+
+#[test]
+fn module_can_use_owned_registry_apis() {
+    struct Config {
+        value: &'static str,
+    }
+
+    struct Service;
+
+    struct OwnedApiModule;
+
+    impl Module for OwnedApiModule {
+        fn register(self, registry: Registry) -> Registry {
+            registry
+                .insert(Service)
+                .merge(Registry::new().insert(Config { value: "module" }))
+        }
+    }
+
+    let registry = Registry::new().module(OwnedApiModule);
+
+    assert!(registry.contains::<Service>());
+    assert_eq!(registry.get::<Config>().unwrap().value, "module");
 }
 
 #[test]

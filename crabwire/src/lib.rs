@@ -75,8 +75,8 @@ impl StdError for Error {}
 /// struct LoggingModule;
 ///
 /// impl Module for LoggingModule {
-///     fn register(self, registry: &mut Registry) {
-///         registry.try_insert(Logger).unwrap();
+///     fn register(self, registry: Registry) -> Registry {
+///         registry.insert(Logger)
 ///     }
 /// }
 ///
@@ -85,7 +85,7 @@ impl StdError for Error {}
 /// ```
 pub trait Module {
     /// Register this module's dependencies into the registry.
-    fn register(self, registry: &mut Registry);
+    fn register(self, registry: Registry) -> Registry;
 }
 
 /// Stores dependencies by their concrete Rust type.
@@ -191,20 +191,19 @@ impl Registry {
     /// struct AppModule;
     ///
     /// impl Module for AppModule {
-    ///     fn register(self, registry: &mut Registry) {
-    ///         registry.try_insert(Service).unwrap();
+    ///     fn register(self, registry: Registry) -> Registry {
+    ///         registry.insert(Service)
     ///     }
     /// }
     ///
     /// let registry = Registry::new().module(AppModule);
     /// assert!(registry.contains::<Service>());
     /// ```
-    pub fn module<M>(mut self, module: M) -> Self
+    pub fn module<M>(self, module: M) -> Self
     where
         M: Module,
     {
-        module.register(&mut self);
-        self
+        module.register(self)
     }
 
     /// Get a dependency by type.
