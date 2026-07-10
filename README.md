@@ -127,27 +127,36 @@ install its own registry:
 cargo nextest run
 ```
 
-For tests that need to replace the global registry inside one process, enable
-the `testing` feature and use `reregister!`:
+For tests that need to replace or layer the global registry inside one process,
+enable the `testing` feature and use `reregister!` or `merge!`:
 
 ```rust
-use crabwire::{Registry, get, reregister};
+use crabwire::{Registry, get, merge, reregister};
 
 struct Config {
     value: &'static str,
 }
 
-reregister!(Registry::new().insert(Config { value: "first" }));
+struct Logger;
+
+reregister!(
+    Registry::new()
+        .insert(Config { value: "first" })
+        .insert(Logger)
+);
 assert_eq!(get!(Config).value, "first");
 
-reregister!(Registry::new().insert(Config { value: "second" }));
+merge!(Registry::new().insert(Config { value: "second" }));
 assert_eq!(get!(Config).value, "second");
+let _logger = get!(Logger);
 ```
 
 `reregister!` intentionally leaks each registry it installs. Future lookups use
 the latest registry, while references returned before replacement remain valid.
-The replacement registry is still process-global, so tests that mutate it can
-interfere with each other when they run concurrently.
+`merge!` also leaks its registry and layers it over the previous registries:
+lookups prefer the newest layer and fall back to older layers when a type is
+missing. The testing registry is still process-global, so tests that mutate it
+can interfere with each other when they run concurrently.
 
 There is one global registry per resolved `crabwire` crate instance in the final
 binary. If a binary crate and several library crates all use the same `crabwire`

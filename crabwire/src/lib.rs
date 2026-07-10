@@ -20,7 +20,7 @@ use foldhash::HashMap;
 static GLOBAL_REGISTRY: OnceLock<Registry> = OnceLock::new();
 
 #[cfg(feature = "testing")]
-static TEST_REGISTRY: RwLock<Option<&'static Registry>> = RwLock::new(None);
+static TEST_REGISTRIES: RwLock<Vec<&'static Registry>> = RwLock::new(Vec::new());
 
 /// Errors returned by registry operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -241,7 +241,7 @@ pub mod macro_utils {
     #[cfg(not(feature = "testing"))]
     use super::GLOBAL_REGISTRY;
     #[cfg(feature = "testing")]
-    use super::TEST_REGISTRY;
+    use super::TEST_REGISTRIES;
 
     #[cfg(not(feature = "testing"))]
     pub fn install_global(registry: Registry) -> Result<(), Error> {
@@ -252,19 +252,29 @@ pub mod macro_utils {
 
     #[cfg(feature = "testing")]
     pub fn install_global(registry: Registry) -> Result<(), Error> {
-        let mut global = TEST_REGISTRY.write().unwrap();
+        let mut registries = TEST_REGISTRIES.write().unwrap();
 
-        if global.is_some() {
+        if !registries.is_empty() {
             return Err(Error::AlreadyInstalled);
         }
 
-        *global = Some(Box::leak(Box::new(registry)));
+        registries.push(Box::leak(Box::new(registry)));
         Ok(())
     }
 
     #[cfg(feature = "testing")]
     pub fn reregister_global_for_tests(registry: Registry) {
-        *TEST_REGISTRY.write().unwrap() = Some(Box::leak(Box::new(registry)));
+        let mut registries = TEST_REGISTRIES.write().unwrap();
+        registries.clear();
+        registries.push(Box::leak(Box::new(registry)));
+    }
+
+    #[cfg(feature = "testing")]
+    pub fn merge_global_for_tests(registry: Registry) {
+        TEST_REGISTRIES
+            .write()
+            .unwrap()
+            .push(Box::leak(Box::new(registry)));
     }
 
     #[cfg(not(feature = "testing"))]
@@ -274,14 +284,44 @@ pub mod macro_utils {
 
     #[cfg(feature = "testing")]
     pub fn global_registry() -> Result<&'static Registry, Error> {
-        (*TEST_REGISTRY.read().unwrap()).ok_or(Error::NoRegistry)
+        TEST_REGISTRIES
+            .read()
+            .unwrap()
+            .last()
+            .copied()
+            .ok_or(Error::NoRegistry)
     }
 
+    #[cfg(not(feature = "testing"))]
     pub fn global_get<T>() -> Result<&'static T, Error>
     where
         T: Send + Sync + 'static,
     {
         global_registry()?.get::<T>()
+    }
+
+    #[cfg(feature = "testing")]
+    pub fn global_get<T>() -> Result<&'static T, Error>
+    where
+        T: Send + Sync + 'static,
+    {
+        let registries = TEST_REGISTRIES.read().unwrap();
+
+        if registries.is_empty() {
+            return Err(Error::NoRegistry);
+        }
+
+        for registry in registries.iter().rev() {
+            match (*registry).get::<T>() {
+                Ok(value) => return Ok(value),
+                Err(Error::Missing { .. }) => {}
+                Err(error) => return Err(error),
+            }
+        }
+
+        Err(Error::Missing {
+            type_name: std::any::type_name::<T>(),
+        })
     }
 }
 
@@ -331,6 +371,19 @@ macro_rules! try_register {
 macro_rules! reregister {
     ($registry:expr $(,)?) => {{
         $crate::macro_utils::reregister_global_for_tests($registry);
+    }};
+}
+
+/// Merge a registry into the global registry stack in builds compiled with the
+/// `testing` feature.
+///
+/// This intentionally leaks the provided registry. Future global lookups prefer
+/// values from the latest merged registry, then fall back to older registries.
+#[cfg(feature = "testing")]
+#[macro_export]
+macro_rules! merge {
+    ($registry:expr $(,)?) => {{
+        $crate::macro_utils::merge_global_for_tests($registry);
     }};
 }
 

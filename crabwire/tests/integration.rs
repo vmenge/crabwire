@@ -1,7 +1,7 @@
 use crabwire::{Error, Module, Registry, get, inject, register, try_register};
 
 #[cfg(feature = "testing")]
-use crabwire::reregister;
+use crabwire::{merge, reregister};
 
 struct NotClone {
     value: String,
@@ -173,4 +173,27 @@ fn reregister_replaces_global_registry_for_future_lookups() {
     reregister!(Registry::new().insert(Config { value: "second" }));
     assert_eq!(get!(Config).value, "second");
     assert_eq!(render(), "second");
+}
+
+#[cfg(feature = "testing")]
+#[test]
+fn merge_layers_registry_over_previous_global_registry() {
+    struct Config {
+        value: &'static str,
+    }
+
+    struct Service {
+        value: &'static str,
+    }
+
+    reregister!(
+        Registry::new()
+            .insert(Config { value: "base" })
+            .insert(Service { value: "service" })
+    );
+
+    merge!(Registry::new().insert(Config { value: "merged" }));
+
+    assert_eq!(get!(Config).value, "merged");
+    assert_eq!(get!(Service).value, "service");
 }
